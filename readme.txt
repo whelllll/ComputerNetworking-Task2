@@ -36,7 +36,8 @@
 
 4. 输出文件
 -----------
-  run_log.txt          — 运行日志（含每次收发的精确时间戳，与 Wireshark 对照）
+  run_log.txt               — 运行日志（含每次收发的精确时间戳，与 Wireshark 对照）
+  udp_received_output.txt   — Server 端按序交付后拼成的完整输出文件
 
 5. 自定义协议说明
 -----------------
