@@ -1,6 +1,7 @@
 import socket
 import time
 import sys
+import pandas as pd
 from udp_protocol import pack_syn, pack_ack, pack_data, pack_fin, unpack_header, HEADER_SIZE, TYPE_SYN_ACK, TYPE_ACK, log
 
 # ==================== 阶段0：准备数据 — N块 × chunk_size字节 ====================
@@ -101,8 +102,10 @@ sock.sendto(pack_fin(), server_addr)
 log("发送FIN包，结束连接")
 
 if rtt_list:
-    log(f"最大RTT: {max(rtt_list):.1f}ms")
-    log(f"最小RTT: {min(rtt_list):.1f}ms")
-    log(f"平均RTT: {sum(rtt_list)/len(rtt_list):.1f}ms")
+    rtt_series = pd.Series(rtt_list)
+    log(f"最大RTT: {rtt_series.max():.1f}ms")
+    log(f"最小RTT: {rtt_series.min():.1f}ms")
+    log(f"平均RTT: {rtt_series.mean():.1f}ms")
+    log(f"RTT标准差: {rtt_series.std():.1f}ms")
 
 sock.close()
