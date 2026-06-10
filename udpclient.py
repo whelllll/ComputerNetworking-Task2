@@ -34,7 +34,7 @@ while True:
     log("发送SYN包，等待服务器响应")
     try:
         data, addr = sock.recvfrom(1024)
-        typ, sid, seqnum, datalen = unpack_header(data)
+        typ, sid, seqnum, datalen = unpack_header(data[:HEADER_SIZE])
         if typ == TYPE_SYN_ACK:
             log("收到SYN-ACK包，握手第二步成功")
             sock.sendto(pack_ack(0), server_addr)  # ③ 发送ACK完成握手
@@ -60,12 +60,12 @@ while base <= total_packets:
             sent[seq] = time.time()  # 记录发包时间
             start_byte = (seq - 1) * 80 + 1
             end_byte = start_byte + len(chunk) - 1
-            log(f"发送包{seq}，字节范围[{start_byte},{end_byte},client已发送]")
+            log(f"发送包{seq}，字节范围[{start_byte},{end_byte}]，client已发送")
 
     # 等待ACK + 超时重传
     try:
         data, addr = sock.recvfrom(1024)
-        typ, sid, ack_seq, datalen = unpack_header(data)
+        typ, sid, ack_seq, datalen = unpack_header(data[:HEADER_SIZE])
 
         if typ == TYPE_ACK and ack_seq not in acked:
             acked.add(ack_seq)
@@ -73,7 +73,7 @@ while base <= total_packets:
             rtt_list.append(rtt)
             start_byte = (ack_seq - 1) * 80 + 1
             end_byte = start_byte + len(chunks[ack_seq - 1]) - 1
-            log(f"收到ACK{ack_seq}，RTT={rtt:.2f}ms，字节范围[{start_byte},{end_byte},server已收到,RTT={rtt:.2f}ms]")
+            log(f"收到ACK{ack_seq}，RTT={rtt:.2f}ms，字节范围[{start_byte},{end_byte}]，server已收到")
 
             # 窗口右滑：base连续确认就持续前进
             while base in acked:
@@ -89,7 +89,7 @@ while base <= total_packets:
                 sent[seq] = now  # 更新发包时间
                 start_byte = (seq - 1) * 80 + 1
                 end_byte = start_byte + len(chunk) - 1
-                log(f"包{seq}超时,单独重传，字节范围[{start_byte},{end_byte},client已重发]")
+                log(f"包{seq}超时，单独重传，字节范围[{start_byte},{end_byte}]，client已重发")
 
 # ==================== 阶段3：结束连接 + 统计 ====================
 sock.sendto(pack_fin(), server_addr)
