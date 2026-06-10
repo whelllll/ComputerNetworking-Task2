@@ -8,6 +8,11 @@ with open("test_input.txt", "rb") as f:
     file_data = f.read()
 
 chunk_size = 80
+
+if len(file_data) == 0:
+    print("警告：文件为空，无数据需要传输")
+    sys.exit(0)
+
 chunks = []
 total_chunks = (len(file_data) + chunk_size - 1) // chunk_size
 for i in range(total_chunks):
@@ -58,7 +63,7 @@ while base <= total_packets:
             chunk = chunks[seq - 1]
             sock.sendto(pack_data(seq, chunk), server_addr)
             sent[seq] = time.time()  # 记录发包时间
-            start_byte = (seq - 1) * 80 + 1
+            start_byte = (seq - 1) * chunk_size + 1
             end_byte = start_byte + len(chunk) - 1
             log(f"发送包{seq}，字节范围[{start_byte},{end_byte}]，client已发送")
 
@@ -71,7 +76,7 @@ while base <= total_packets:
             acked.add(ack_seq)
             rtt = (time.time() - sent[ack_seq]) * 1000  # RTT = 收到ACK时间 - 发包时间
             rtt_list.append(rtt)
-            start_byte = (ack_seq - 1) * 80 + 1
+            start_byte = (ack_seq - 1) * chunk_size + 1
             end_byte = start_byte + len(chunks[ack_seq - 1]) - 1
             log(f"收到ACK{ack_seq}，RTT={rtt:.2f}ms，字节范围[{start_byte},{end_byte}]，server已收到")
 
@@ -87,7 +92,7 @@ while base <= total_packets:
                 chunk = chunks[seq - 1]
                 sock.sendto(pack_data(seq, chunk), server_addr)
                 sent[seq] = now  # 更新发包时间
-                start_byte = (seq - 1) * 80 + 1
+                start_byte = (seq - 1) * chunk_size + 1
                 end_byte = start_byte + len(chunk) - 1
                 log(f"包{seq}超时，单独重传，字节范围[{start_byte},{end_byte}]，client已重发")
 

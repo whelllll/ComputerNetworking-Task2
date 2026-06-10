@@ -36,7 +36,7 @@ def pack_fin():
 
 def unpack_header(data):
     """解包头部5字节 -> (type, student_id, seqnum, datalen)"""
-    return struct.unpack(HEADER_FMT, data)
+    return struct.unpack(HEADER_FMT, data[:HEADER_SIZE])
 
 def verify_student_id(received_id):
     """XOR验证学号：received_id ^ 0x5A3C == 2821 则通过
