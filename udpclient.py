@@ -25,12 +25,25 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.settimeout(0.3)
 
 # 命令行参数：py udpclient.py <服务器IP> <服务器端口>
-if len(sys.argv) < 3:
+# 鲁棒性1：参数个数检查
+if len(sys.argv) != 3:
     print("用法: py udpclient.py <serverIP> <serverPort>")
     print("示例: py udpclient.py 127.0.0.1 12345")
     sys.exit(1)
+
 server_ip = sys.argv[1]
-server_port = int(sys.argv[2])
+# 鲁棒性2：端口必须是整数
+try:
+    server_port = int(sys.argv[2])
+except ValueError:
+    print("错误：端口必须是整数")
+    sys.exit(1)
+
+# 鲁棒性3：端口范围校验
+if server_port <= 0 or server_port > 65535:
+    print("错误：端口范围必须在 1 ~ 65535 之间")
+    sys.exit(1)
+
 server_addr = (server_ip, server_port)
 
 # ==================== 阶段1：三次握手（应用层模拟） ====================
@@ -38,8 +51,11 @@ student_id = 20793  # 2821 XOR 0x5A3C 的结果
 while True:
     sock.sendto(pack_syn(student_id), server_addr)  # ① 发送SYN + 学号
     log("发送SYN包，等待服务器响应")
+
+
+
     try:
-        data, addr = sock.recvfrom(1024)
+        data, addr = sock.recvfrom(1024)#收synack
         typ, sid, seqnum, datalen = unpack_header(data[:HEADER_SIZE])
         if typ == TYPE_SYN_ACK:
             log("收到SYN-ACK包，握手第二步成功")
@@ -62,7 +78,9 @@ while base <= total_packets:
     for seq in range(base, min(base + 5, total_packets + 1)):
         if seq not in sent:
             chunk = chunks[seq - 1]
-            sock.sendto(pack_data(seq, chunk), server_addr)
+            sock.sendto(pack_data(seq, chunk), server_addr)#1.发包
+
+            #经典小连招：时间->开始字节->结束字节->log
             sent[seq] = time.time()  # 记录发包时间
             start_byte = (seq - 1) * chunk_size + 1
             end_byte = start_byte + len(chunk) - 1
@@ -70,13 +88,15 @@ while base <= total_packets:
 
     # 等待ACK + 超时重传
     try:
-        data, addr = sock.recvfrom(1024)
+        data, addr = sock.recvfrom(1024)#2.收ack
         typ, sid, ack_seq, datalen = unpack_header(data[:HEADER_SIZE])
 
+        #看看是不是新的ack
         if typ == TYPE_ACK and ack_seq not in acked:
-            acked.add(ack_seq)
+            acked.add(ack_seq)#添加ack
             rtt = (time.time() - sent[ack_seq]) * 1000  # RTT = 收到ACK时间 - 发包时间
-            rtt_list.append(rtt)
+            rtt_list.append(rtt)#rttlist加上
+            #经典小连招：时间->开始字节->结束字节->log
             start_byte = (ack_seq - 1) * chunk_size + 1
             end_byte = start_byte + len(chunks[ack_seq - 1]) - 1
             log(f"收到ACK{ack_seq}，RTT={rtt:.2f}ms，字节范围[{start_byte},{end_byte}]，server已收到")
@@ -85,13 +105,15 @@ while base <= total_packets:
             while base in acked:
                 base = base + 1
 
+
     except (socket.timeout, ConnectionResetError):
         # 超时：单独重传窗口内已发未确认的包（SR风格，不是GBN重发全部）
         now = time.time()
-        for seq in range(base, min(base + 5, total_packets + 1)):
-            if seq not in acked and now - sent.get(seq, 0) >= 0.3:
+        for seq in range(base, min(base + 5, total_packets + 1)):#范围先确定
+            if seq not in acked and now - sent.get(seq, 0) >= 0.3:#未确认+超时了
                 chunk = chunks[seq - 1]
-                sock.sendto(pack_data(seq, chunk), server_addr)
+                sock.sendto(pack_data(seq, chunk), server_addr)#1.发包
+                #经典小连招：时间->开始字节->结束字节->log
                 sent[seq] = now  # 更新发包时间
                 start_byte = (seq - 1) * chunk_size + 1
                 end_byte = start_byte + len(chunk) - 1
